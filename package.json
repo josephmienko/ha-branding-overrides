@@ -1,0 +1,14 @@
+{
+  "name": "ha-branding-overrides",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/build_plugin.mjs",
+    "check": "node --check src/ha-branding-overrides.js && node --check dist/ha-branding-overrides.js",
+    "test": "node tests/validate-dist.mjs",
+    "validate": "npm run build && npm run check && npm test"
+  }
+}

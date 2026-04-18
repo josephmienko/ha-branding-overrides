@@ -1,0 +1,4 @@
+frontend:
+  extra_module_url:
+    - /local/branding-overrides-config.js
+    - /hacsfiles/ha-branding-overrides/ha-branding-overrides.js
