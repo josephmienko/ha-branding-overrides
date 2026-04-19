@@ -9,6 +9,22 @@ window.ha_branding_overrides = {
   logoSelectors: [".logo-target"],
   removeSelectors: [".remove-me"],
   themeColor: "#365D49",
+  auth: {
+    enabled: true,
+    name: "Example Auth",
+    icon32Url: "/auth/favicon-32.png",
+    icon192Url: "/auth/favicon-192.png",
+    logoLightUrl: "/auth/logo-light.svg",
+    logoDarkUrl: "/auth/logo-dark.svg",
+    theme: {
+      dark: {
+        primary: "#0B3027",
+        surface: "#10140F",
+        surfaceContainer: "#182018",
+        accent: "#F0C94A",
+      },
+    },
+  },
 };
 
 await import("../src/ha-branding-overrides.js");
@@ -104,5 +120,36 @@ describe("ha-branding-overrides", () => {
     expect(lateLogo.src).toContain("/branding/logo.svg");
     expect(lateLogo.alt).toBe("Example Home");
     expect(lateShadow.querySelector("span")?.textContent).toBe("Example Home");
+  });
+
+  it("optionally brands auth pages without depending on auth runtime tooling", async () => {
+    document.title = "Home Assistant";
+    document.head.innerHTML = `
+      <link rel="icon" href="/old-auth.ico">
+      <link rel="apple-touch-icon" href="/old-auth-touch.png">
+    `;
+    document.body.innerHTML = `
+      <ha-authorize>
+        <div class="header">
+          <img src="/old-auth-logo.svg" alt="Old auth logo">
+        </div>
+        <div class="card-content">
+          <ha-button>Log in</ha-button>
+        </div>
+      </ha-authorize>
+    `;
+
+    await flushBranding();
+
+    const authLogo = document.querySelector(".header img");
+    expect(document.title).toBe("Example Auth");
+    expect(authLogo?.getAttribute("src")).toBe("/auth/logo-dark.svg");
+    expect(authLogo?.alt).toBe("Example Auth");
+    expect(document.getElementById("ha-branding-overrides-auth-favicon")?.href).toContain("/auth/favicon-32.png");
+    expect(document.getElementById("ha-branding-overrides-auth-apple-touch-icon")?.href).toContain("/auth/favicon-192.png");
+    expect(document.getElementById("ha-branding-overrides-auth-theme")?.textContent).toContain("--ha-branding-auth-primary");
+    expect(document.documentElement.style.getPropertyValue("--ha-branding-auth-primary")).toBe("#0B3027");
+    expect(document.body.style.getPropertyValue("--ha-branding-auth-surface")).toBe("#10140F");
+    expect(document.querySelector('meta[name="theme-color"]')?.content).toBe("#0B3027");
   });
 });

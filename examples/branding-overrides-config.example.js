@@ -13,5 +13,23 @@ window.ha_branding_overrides = {
   ],
   textReplacements: [
     { from: "Home Assistant", to: "Example Home" }
-  ]
+  ],
+  auth: {
+    enabled: true,
+    name: "Example Home",
+    icon32Url: "/local/branding/favicon-32.png",
+    icon192Url: "/local/branding/favicon-192.png",
+    logoLightUrl: "/local/branding/auth-logo-light.svg",
+    logoDarkUrl: "/local/branding/auth-logo-dark.svg",
+    theme: {
+      light: {
+        primary: "#365D49",
+        accent: "#FFDE3F"
+      },
+      dark: {
+        primary: "#6D9B7B",
+        accent: "#FFDE3F"
+      }
+    }
+  }
 };

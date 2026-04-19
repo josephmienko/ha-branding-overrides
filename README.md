@@ -37,12 +37,13 @@ The package is intentionally BYOB:
 - users point the module at `/local/...`, `/hacsfiles/...`, or absolute URLs
 - users provide config through a separate script that sets `window.ha_branding_overrides`
 
-The extracted implementation does four things:
+The extracted implementation does these things:
 
 - rewrites favicon and app-name metadata in `<head>`
 - rewrites `document.title`
 - walks open shadow roots to replace visible `Home Assistant` text and matching accessibility labels
 - optionally swaps or removes matched logo nodes using selectors you provide
+- optionally brands Home Assistant auth/login pages when `auth.enabled` is set
 
 ## Repo Layout
 
@@ -93,7 +94,25 @@ window.ha_branding_overrides = {
   ],
   textReplacements: [
     { from: "Home Assistant", to: "Example Home" }
-  ]
+  ],
+  auth: {
+    enabled: true,
+    name: "Example Home",
+    icon32Url: "/local/branding/favicon-32.png",
+    icon192Url: "/local/branding/favicon-192.png",
+    logoLightUrl: "/local/branding/auth-logo-light.svg",
+    logoDarkUrl: "/local/branding/auth-logo-dark.svg",
+    theme: {
+      light: {
+        primary: "#365D49",
+        accent: "#FFDE3F"
+      },
+      dark: {
+        primary: "#6D9B7B",
+        accent: "#FFDE3F"
+      }
+    }
+  }
 };
 ```
 
@@ -110,8 +129,36 @@ Recommended supported values:
 - `themeColor`
 - `titleReplacements`
 - `textReplacements`
+- `auth`
 
 If `appName` is set and you do not provide custom replacement arrays, the module still defaults to replacing exact `Home Assistant` references in titles and text nodes.
+
+## Optional Auth Page Branding
+
+Auth branding is opt-in and has no dependency on a specific OIDC, SSO, NetBird, or Authentik setup.
+
+Set `window.ha_branding_overrides.auth.enabled = true` and load this same module on the auth page. When the current page looks like a Home Assistant auth page, the module will:
+
+- set auth-page title, favicons, app metadata, and theme color
+- swap the auth header logo using `auth.logoLightUrl` or `auth.logoDarkUrl`
+- apply light/dark auth theme variables and CSS for the login card and controls
+- observe auth-page DOM changes so late-rendered login elements still get branded
+
+Supported `auth` values:
+
+- `enabled`
+- `name`
+- `icon32Url`, `icon32`, `favicon32`
+- `icon192Url`, `icon192`, `favicon192`
+- `logoUrl`, `logoLightUrl`, `logoDarkUrl`
+- `logoAlt`
+- `logoSelectors`
+- `theme.light`
+- `theme.dark`
+
+For compatibility with earlier Crooked Sentry auth work, the module also reads `window.auth_oidc_branding` as a fallback. New installs should prefer `window.ha_branding_overrides.auth` so branding remains independent from any auth package.
+
+Loading note: Home Assistant `frontend.extra_module_url` is enough for normal frontend branding. Auth pages may be served by a separate auth provider or custom auth flow, so that provider must also load the config script and `ha-branding-overrides.js` if you want auth-page branding.
 
 ## HACS Install
 

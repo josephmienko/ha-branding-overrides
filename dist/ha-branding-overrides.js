@@ -5,8 +5,34 @@
 
 const OBSERVED_ROOTS = new WeakSet();
 const SHADOW_PATCH_KEY = "__haBrandingOverridesShadowPatch";
+const AUTH_THEME_STYLE_ID = "ha-branding-overrides-auth-theme";
 
 let scheduledFrame = null;
+
+const DEFAULT_AUTH_THEME = {
+  light: {
+    primary: "#6D9B7B",
+    onPrimary: "#FFFFFF",
+    surface: "#FFF9EE",
+    onSurface: "#1E1B13",
+    surfaceContainer: "#F4EDDF",
+    surfaceContainerHigh: "#EEE8DA",
+    onSurfaceVariant: "#4B4739",
+    outline: "#CDC6B4",
+    accent: "#FFDE3F",
+  },
+  dark: {
+    primary: "#6D9B7B",
+    onPrimary: "#FFFFFF",
+    surface: "#15130B",
+    onSurface: "#E8E2D4",
+    surfaceContainer: "#222017",
+    surfaceContainerHigh: "#2D2A21",
+    onSurfaceVariant: "#CDC6B4",
+    outline: "#4B4739",
+    accent: "#FFDE3F",
+  },
+};
 
 function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -45,6 +71,164 @@ function normalizeReplacements(items, defaults = []) {
     .filter(Boolean);
 }
 
+function normalizeThemeMode(raw, fallback) {
+  const input = raw && typeof raw === "object" ? raw : {};
+  return {
+    primary: firstString([input.primary], fallback.primary),
+    onPrimary: firstString([input.onPrimary, input.on_primary], fallback.onPrimary),
+    surface: firstString([input.surface], fallback.surface),
+    onSurface: firstString([input.onSurface, input.on_surface], fallback.onSurface),
+    surfaceContainer: firstString(
+      [input.surfaceContainer, input.surface_container],
+      fallback.surfaceContainer
+    ),
+    surfaceContainerHigh: firstString(
+      [input.surfaceContainerHigh, input.surface_container_high],
+      fallback.surfaceContainerHigh
+    ),
+    onSurfaceVariant: firstString(
+      [input.onSurfaceVariant, input.on_surface_variant],
+      fallback.onSurfaceVariant
+    ),
+    outline: firstString([input.outline], fallback.outline),
+    accent: firstString([input.accent], fallback.accent),
+  };
+}
+
+function normalizeAuthConfig(input, base) {
+  const legacyAuth =
+    window.auth_oidc_branding && typeof window.auth_oidc_branding === "object"
+      ? window.auth_oidc_branding
+      : {};
+  const rawAuth = input.auth && typeof input.auth === "object" ? input.auth : {};
+  const authInput = { ...legacyAuth, ...rawAuth };
+  const hasAuthInput = Object.keys(authInput).length > 0;
+  const enabled = authInput.enabled !== false && (authInput.enabled === true || hasAuthInput);
+  const icons = authInput.icons && typeof authInput.icons === "object" ? authInput.icons : {};
+  const logos = authInput.logos && typeof authInput.logos === "object" ? authInput.logos : {};
+  const theme = authInput.theme && typeof authInput.theme === "object" ? authInput.theme : {};
+  const name = firstString(
+    [
+      authInput.name,
+      authInput.appName,
+      authInput.app_name,
+      authInput.brandName,
+      authInput.brand_name,
+      base.appName,
+    ],
+    ""
+  );
+  const icon32Url = firstString(
+    [
+      authInput.icon32Url,
+      authInput.icon32_url,
+      authInput.icon32,
+      authInput.icon_32_url,
+      authInput.favicon32,
+      authInput.favicon_32,
+      icons.icon32Url,
+      icons.icon32_url,
+      icons.icon32,
+      icons.icon_32_url,
+      icons.favicon32,
+      icons.favicon_32,
+      base.icon32Url,
+    ],
+    ""
+  );
+  const icon192Url = firstString(
+    [
+      authInput.icon192Url,
+      authInput.icon192_url,
+      authInput.icon192,
+      authInput.icon_192_url,
+      authInput.favicon192,
+      authInput.favicon_192,
+      icons.icon192Url,
+      icons.icon192_url,
+      icons.icon192,
+      icons.icon_192_url,
+      icons.favicon192,
+      icons.favicon_192,
+      base.icon192Url,
+    ],
+    ""
+  );
+  const logoUrl = firstString(
+    [
+      authInput.logoUrl,
+      authInput.logo_url,
+      authInput.logo,
+      icons.logoUrl,
+      icons.logo_url,
+      icons.logo,
+      base.logoUrl,
+      icon192Url,
+      icon32Url,
+    ],
+    ""
+  );
+  const logoLightUrl = firstString(
+    [
+      authInput.logoLightUrl,
+      authInput.logo_light_url,
+      authInput.logoLight,
+      authInput.logo_light,
+      authInput.lightLogoUrl,
+      authInput.light_logo_url,
+      authInput.lightLogo,
+      authInput.light_logo,
+      logos.lightUrl,
+      logos.light_url,
+      logos.light,
+      logoUrl,
+    ],
+    logoUrl
+  );
+  const logoDarkUrl = firstString(
+    [
+      authInput.logoDarkUrl,
+      authInput.logo_dark_url,
+      authInput.logoDark,
+      authInput.logo_dark,
+      authInput.darkLogoUrl,
+      authInput.dark_logo_url,
+      authInput.darkLogo,
+      authInput.dark_logo,
+      logos.darkUrl,
+      logos.dark_url,
+      logos.dark,
+      logoUrl,
+    ],
+    logoUrl
+  );
+  const primaryColor = firstString([authInput.themeColor, authInput.theme_color, base.themeColor], "");
+  const lightFallback = { ...DEFAULT_AUTH_THEME.light };
+  const darkFallback = { ...DEFAULT_AUTH_THEME.dark };
+  if (primaryColor) {
+    lightFallback.primary = primaryColor;
+    darkFallback.primary = primaryColor;
+  }
+
+  return {
+    enabled,
+    name,
+    icon32Url,
+    icon192Url,
+    logoUrl,
+    logoLightUrl,
+    logoDarkUrl,
+    logoAlt: firstString([authInput.logoAlt, authInput.logo_alt, name, base.logoAlt], ""),
+    logoSelectors: normalizeStringList(authInput.logoSelectors).length
+      ? normalizeStringList(authInput.logoSelectors)
+      : [".header img"],
+    theme: {
+      light: normalizeThemeMode(theme.light, lightFallback),
+      dark: normalizeThemeMode(theme.dark, darkFallback),
+    },
+  };
+}
+
 function normalizeConfig(raw) {
   const input = raw && typeof raw === "object" ? raw : {};
   const homeAssistantName = firstString(
@@ -61,19 +245,29 @@ function normalizeConfig(raw) {
     [input.icon192Url, input.icon192_url, input.favicon192, input.favicon_192, input.iconUrl, input.icon_url],
     ""
   );
-
-  return {
+  const base = {
     appName,
     homeAssistantName,
     icon32Url,
     icon192Url,
     logoUrl: firstString([input.logoUrl, input.logo_url, input.logo], ""),
     logoAlt: firstString([input.logoAlt, input.logo_alt], ""),
+    themeColor: firstString([input.themeColor, input.theme_color], ""),
+  };
+
+  return {
+    appName,
+    homeAssistantName,
+    icon32Url,
+    icon192Url,
+    logoUrl: base.logoUrl,
+    logoAlt: base.logoAlt,
     logoSelectors: normalizeStringList(input.logoSelectors),
     removeSelectors: normalizeStringList(input.removeSelectors),
-    themeColor: firstString([input.themeColor, input.theme_color], ""),
+    themeColor: base.themeColor,
     titleReplacements: normalizeReplacements(input.titleReplacements, defaultReplacement),
     textReplacements: normalizeReplacements(input.textReplacements, defaultReplacement),
+    auth: normalizeAuthConfig(input, base),
   };
 }
 
@@ -89,7 +283,8 @@ function hasBrandingWork() {
       BRANDING.removeSelectors.length ||
       BRANDING.themeColor ||
       BRANDING.titleReplacements.length ||
-      BRANDING.textReplacements.length
+      BRANDING.textReplacements.length ||
+      BRANDING.auth.enabled
   );
 }
 
@@ -356,6 +551,190 @@ function applyLogoBranding() {
   });
 }
 
+function prefersLightColorScheme() {
+  return Boolean(window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches);
+}
+
+function isAuthPage() {
+  const path = window.location?.pathname || "";
+  if (path.startsWith("/auth/")) {
+    return true;
+  }
+
+  return Boolean(
+    document.querySelector("ha-authorize, ha-auth-flow, ha-auth-form, ha-pick-auth-provider")
+  );
+}
+
+function activeAuthTheme() {
+  return prefersLightColorScheme() ? BRANDING.auth.theme.light : BRANDING.auth.theme.dark;
+}
+
+function activeAuthLogoUrl() {
+  const themedLogo = prefersLightColorScheme()
+    ? BRANDING.auth.logoLightUrl
+    : BRANDING.auth.logoDarkUrl;
+  return firstString([themedLogo, BRANDING.auth.logoUrl], BRANDING.auth.logoUrl);
+}
+
+function applyAuthThemeVars(theme) {
+  const targets = [
+    document.documentElement,
+    document.body,
+    ...document.querySelectorAll("ha-authorize, ha-auth-flow, ha-auth-form"),
+  ].filter(Boolean);
+  const setVar = (name, value) => {
+    targets.forEach((element) => element.style.setProperty(name, value, "important"));
+  };
+
+  setVar("--ha-branding-auth-primary", theme.primary);
+  setVar("--ha-branding-auth-on-primary", theme.onPrimary);
+  setVar("--ha-branding-auth-surface", theme.surface);
+  setVar("--ha-branding-auth-on-surface", theme.onSurface);
+  setVar("--ha-branding-auth-surface-container", theme.surfaceContainer);
+  setVar("--ha-branding-auth-surface-container-high", theme.surfaceContainerHigh);
+  setVar("--ha-branding-auth-on-surface-variant", theme.onSurfaceVariant);
+  setVar("--ha-branding-auth-outline", theme.outline);
+  setVar("--ha-branding-auth-accent", theme.accent);
+
+  setVar("--primary-color", theme.primary);
+  setVar("--accent-color", theme.accent);
+  setVar("--mdc-theme-primary", theme.primary);
+  setVar("--mdc-theme-secondary", theme.accent);
+  setVar("--mdc-theme-on-primary", theme.onPrimary);
+  setVar("--mdc-theme-surface", theme.surface);
+  setVar("--mdc-theme-on-surface", theme.onSurface);
+}
+
+function ensureAuthThemeStyle() {
+  if (document.getElementById(AUTH_THEME_STYLE_ID)) {
+    return;
+  }
+
+  const style = document.createElement("style");
+  style.id = AUTH_THEME_STYLE_ID;
+  style.textContent = `
+    :root {
+      color-scheme: light dark;
+    }
+
+    body,
+    ha-authorize {
+      background: var(--ha-branding-auth-surface) !important;
+      color: var(--ha-branding-auth-on-surface) !important;
+    }
+
+    ha-authorize .card-content {
+      background: var(--ha-branding-auth-surface-container) !important;
+      color: var(--ha-branding-auth-on-surface) !important;
+      border: 1px solid var(--ha-branding-auth-outline) !important;
+      border-radius: 28px !important;
+      box-shadow: none !important;
+    }
+
+    ha-authorize .mdc-text-field,
+    ha-authorize .mdc-text-field--filled,
+    ha-authorize .mdc-text-field__input {
+      background: var(--ha-branding-auth-surface-container-high) !important;
+      color: var(--ha-branding-auth-on-surface) !important;
+    }
+
+    ha-authorize .mdc-floating-label,
+    ha-authorize .mdc-text-field-helper-text,
+    ha-authorize .mdc-text-field-helper-line,
+    ha-authorize p,
+    ha-authorize .or {
+      color: var(--ha-branding-auth-on-surface-variant) !important;
+    }
+
+    ha-authorize .mdc-line-ripple::before,
+    ha-authorize .mdc-line-ripple::after {
+      border-bottom-color: var(--ha-branding-auth-primary) !important;
+    }
+
+    ha-authorize .forgot-password,
+    ha-authorize a {
+      color: var(--ha-branding-auth-primary) !important;
+    }
+
+    ha-authorize ha-button,
+    ha-authorize mwc-button {
+      --mdc-theme-primary: var(--ha-branding-auth-primary);
+      --mdc-theme-on-primary: var(--ha-branding-auth-on-primary);
+      --mdc-button-disabled-ink-color: var(--ha-branding-auth-on-surface-variant);
+      border-radius: 999px !important;
+      box-shadow: none !important;
+    }
+
+    ha-authorize ha-list-item {
+      color: var(--ha-branding-auth-on-surface) !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function applyAuthHeadBranding(theme) {
+  const primaryIconUrl = BRANDING.auth.icon192Url || BRANDING.auth.icon32Url;
+  const smallIconUrl = BRANDING.auth.icon32Url || BRANDING.auth.icon192Url;
+
+  if (BRANDING.auth.name && document.title !== BRANDING.auth.name) {
+    document.title = BRANDING.auth.name;
+  }
+
+  updateExistingHeadIconLinks(primaryIconUrl || smallIconUrl);
+  ensureHeadLink("ha-branding-overrides-auth-favicon", "icon", smallIconUrl || primaryIconUrl);
+  ensureHeadLink(
+    "ha-branding-overrides-auth-shortcut-icon",
+    "shortcut icon",
+    smallIconUrl || primaryIconUrl
+  );
+  ensureHeadLink(
+    "ha-branding-overrides-auth-apple-touch-icon",
+    "apple-touch-icon",
+    primaryIconUrl || smallIconUrl
+  );
+  ensureMeta("application-name", BRANDING.auth.name);
+  ensureMeta("apple-mobile-web-app-title", BRANDING.auth.name);
+  ensureMeta("theme-color", theme.primary);
+}
+
+function applyAuthLogoBranding() {
+  const logoUrl = activeAuthLogoUrl();
+  if (!logoUrl || !BRANDING.auth.logoSelectors.length) {
+    return;
+  }
+
+  const logoAlt = BRANDING.auth.logoAlt || BRANDING.auth.name;
+  walkOpenRoots(document, null, (root) => {
+    for (const selector of BRANDING.auth.logoSelectors) {
+      root.querySelectorAll(selector).forEach((node) => {
+        if (!(node instanceof HTMLImageElement)) {
+          return;
+        }
+
+        if (node.getAttribute("src") !== logoUrl) {
+          node.setAttribute("src", logoUrl);
+        }
+        if (logoAlt && node.alt !== logoAlt) {
+          node.alt = logoAlt;
+        }
+      });
+    }
+  });
+}
+
+function applyAuthBranding() {
+  if (!BRANDING.auth.enabled || !isAuthPage()) {
+    return;
+  }
+
+  const theme = activeAuthTheme();
+  applyAuthHeadBranding(theme);
+  applyAuthThemeVars(theme);
+  ensureAuthThemeStyle();
+  applyAuthLogoBranding();
+}
+
 function applyTextBranding() {
   walkOpenRoots(document, (element) => {
     if (!(element instanceof Element)) {
@@ -385,6 +764,7 @@ function applyBranding() {
   applyTextBranding();
   applyRemoveSelectors();
   applyLogoBranding();
+  applyAuthBranding();
 }
 
 function scheduleApply() {
@@ -453,6 +833,15 @@ function init() {
   window.addEventListener("hashchange", scheduleApply);
   window.addEventListener("focus", scheduleApply);
   document.addEventListener("visibilitychange", scheduleApply);
+
+  if (BRANDING.auth.enabled && window.matchMedia) {
+    const media = window.matchMedia("(prefers-color-scheme: light)");
+    if (media.addEventListener) {
+      media.addEventListener("change", scheduleApply);
+    } else if (media.addListener) {
+      media.addListener(scheduleApply);
+    }
+  }
 }
 
 init();
