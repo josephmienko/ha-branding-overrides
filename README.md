@@ -1,4 +1,4 @@
-<h1><a href="https://josephmienko.github.io/ha-branding-overrides/">ha-branding-overrides</a></h1>
+<h1 style="display: none;"><a href="https://josephmienko.github.io/ha-branding-overrides/">ha-branding-overrides</a></h1>
 <picture align="center">
   <!-- Desktop Dark Mode -->
   <source media="(min-width: 769px) and (prefers-color-scheme: dark)" srcset="assets/header-wide-dark-inline.svg">
@@ -19,63 +19,46 @@
   </span>
 </b>
 
-## Overview
+Global Home Assistant branding override module: rebrand favicons, titles, logos, and auth pages. BYOB (bring your own branding assets) via `window.ha_branding_overrides` config.
 
-`ha-branding-overrides` is the recommended extraction target for the global Home Assistant branding override module that currently lives in this repo.
+## Configuration
 
-This repo ships one HACS dashboard/plugin artifact: `dist/ha-branding-overrides.js`.
+### Installation Instructions
 
-## Runtime Model
+#### HACS Install
 
-This package is a global frontend module, not a Lovelace card.
+1. Add the repository to HACS as a `Dashboard`.
+2. Install `HA Branding Overrides`.
+3. Create your own config script from `examples/branding-overrides-config.example.js`.
+4. Load the config script and the HACS-installed module from `frontend.extra_module_url`.
 
-HACS can distribute the JavaScript artifact, but Home Assistant still needs to load it through `frontend.extra_module_url`.
+Example:
 
-The package is intentionally BYOB:
-
-- no runtime images are required in `dist/`
-- users bring their own logo and favicon assets
-- users point the module at `/local/...`, `/hacsfiles/...`, or absolute URLs
-- users provide config through a separate script that sets `window.ha_branding_overrides`
-
-The extracted implementation does these things:
-
-- rewrites favicon and app-name metadata in `<head>`
-- rewrites `document.title`
-- walks open shadow roots to replace visible `Home Assistant` text and matching accessibility labels
-- optionally swaps or removes matched logo nodes using selectors you provide
-- optionally brands Home Assistant auth/login pages when `auth.enabled` is set
-
-## Repo Layout
-
-```text
-ha-branding-overrides/
-  .github/
-    workflows/
-      validate.yml
-  dist/
-    ha-branding-overrides.js
-  examples/
-    branding-overrides-config.example.js
-    frontend.extra_module_url.yaml
-    example-assets/
-      README.md
-  scripts/
-    build_plugin.mjs
-  screenshots/
-  src/
-    ha-branding-overrides.js
-  tests/
-    validate-dist.mjs
-  .gitignore
-  README.md
-  hacs.json
-  package.json
+```yaml
+frontend:
+  extra_module_url:
+    - /local/branding-overrides-config.js
+    - /hacsfiles/ha-branding-overrides/ha-branding-overrides.js
 ```
 
-## Public Config Contract
+The config script must load first.
 
-The module reads `window.ha_branding_overrides` before it initializes.
+#### Manual Install
+
+1. Copy `dist/ha-branding-overrides.js` into your Home Assistant `www/` directory.
+2. Create your own config script, for example `/config/www/branding-overrides-config.js`.
+3. Load both through `frontend.extra_module_url`:
+
+   ```yaml
+   frontend:
+     extra_module_url:
+       - /local/branding-overrides-config.js
+       - /local/ha-branding-overrides.js
+   ```
+
+### Configuration Contract
+
+The module reads `window.ha_branding_overrides` before initialization.
 
 Example:
 
@@ -117,82 +100,45 @@ window.ha_branding_overrides = {
 };
 ```
 
-Recommended supported values:
+#### Supported Options
 
 - `homeAssistantName`
 - `appName`
-- `icon32Url`
-- `icon192Url`
-- `logoUrl`
-- `logoAlt`
-- `logoSelectors`
-- `removeSelectors`
+- `icon32Url`, `icon192Url`
+- `logoUrl`, `logoAlt`
+- `logoSelectors`, `removeSelectors`
 - `themeColor`
-- `titleReplacements`
-- `textReplacements`
-- `auth`
+- `titleReplacements`, `textReplacements`
+- `auth` (see below)
 
-If `appName` is set and you do not provide custom replacement arrays, the module still defaults to replacing exact `Home Assistant` references in titles and text nodes.
+If `appName` is set without custom replacement arrays, the module defaults to replacing exact "Home Assistant" references in titles and text nodes.
 
-## Optional Auth Page Branding
+### Optional Auth Page Branding
 
-Auth branding is opt-in and has no dependency on a specific OIDC, SSO, NetBird, or Authentik setup.
+Auth branding is opt-in and does not depend on OIDC, SSO, NetBird, or Authentik.
 
-Set `window.ha_branding_overrides.auth.enabled = true` and load this same module on the auth page. When the current page looks like a Home Assistant auth page, the module will:
+Set `window.ha_branding_overrides.auth.enabled = true` and load the module on the auth page. The module will:
 
-- set auth-page title, favicons, app metadata, and theme color
-- swap the auth header logo using `auth.logoLightUrl` or `auth.logoDarkUrl`
-- apply light/dark auth theme variables and CSS for the login card and controls
-- observe auth-page DOM changes so late-rendered login elements still get branded
+- Set auth page title, favicons, app metadata, and theme color
+- Swap header logo using `auth.logoLightUrl` or `auth.logoDarkUrl`
+- Apply light/dark theme variables and CSS for login controls
+- Observe DOM changes for late-rendered elements
 
-Supported `auth` values:
+Supported `auth` options:
 
 - `enabled`
 - `name`
-- `icon32Url`, `icon32`, `favicon32`
-- `icon192Url`, `icon192`, `favicon192`
-- `logoUrl`, `logoLightUrl`, `logoDarkUrl`
+- `icon32Url` / `icon192Url`
+- `logoUrl` / `logoLightUrl` / `logoDarkUrl`
 - `logoAlt`
 - `logoSelectors`
-- `theme.light`
-- `theme.dark`
+- `theme.light` / `theme.dark`
 
-For compatibility with earlier Crooked Sentry auth work, the module also reads `window.auth_oidc_branding` as a fallback. New installs should prefer `window.ha_branding_overrides.auth` so branding remains independent from any auth package.
+For compatibility with earlier Crooked Sentry work, the module also reads `window.auth_oidc_branding` as a fallback. New installs should use `window.ha_branding_overrides.auth`.
 
-Loading note: Home Assistant `frontend.extra_module_url` is enough for normal frontend branding. Auth pages may be served by a separate auth provider or custom auth flow, so that provider must also load the config script and `ha-branding-overrides.js` if you want auth-page branding.
+**Loading note:** Home Assistant `frontend.extra_module_url` handles frontend branding. Auth pages served by a separate auth provider must also load the config script and module if you want auth-page branding.
 
-## HACS Install
-
-1. Add the repository to HACS as a `Dashboard`.
-2. Install `HA Branding Overrides`.
-3. Create your own config script from `examples/branding-overrides-config.example.js`.
-4. Load the config script and the HACS-installed module from `frontend.extra_module_url`.
-
-Example:
-
-```yaml
-frontend:
-  extra_module_url:
-    - /local/branding-overrides-config.js
-    - /hacsfiles/ha-branding-overrides/ha-branding-overrides.js
-```
-
-The config script must load first.
-
-## Manual Install
-
-1. Copy `dist/ha-branding-overrides.js` into your Home Assistant `www/` directory.
-2. Create your own config script, for example `/config/www/branding-overrides-config.js`.
-3. Load both through `frontend.extra_module_url`:
-
-   ```yaml
-   frontend:
-     extra_module_url:
-       - /local/branding-overrides-config.js
-       - /local/ha-branding-overrides.js
-   ```
-
-## Maintainer Workflow
+### Maintainer Workflow
 
 1. Edit `src/ha-branding-overrides.js`.
 2. Rebuild the install artifact:
@@ -212,41 +158,19 @@ The config script must load first.
 
 The CI workflow fails if the built artifact is out of date.
 
-## Packaging Rules
+### Design Notes
 
-- `dist/` contains only installable runtime artifacts.
-- `examples/` contains config examples and sample assets only.
-- `screenshots/` is for README assets only.
-- Sample images should stay in `examples/` and never be required for runtime use.
-- Public docs should explicitly support both `/local/...` and absolute URLs for user-supplied assets.
+This is a BYOB (bring-your-own-branding) module:
 
-## Recommended Public Rename
+- No runtime images required in `dist/`
+- Users provide their own logo, favicon, and auth page assets
+- Users point the module at `/local/...`, `/hacsfiles/...`, or absolute URLs
+- The module reads configuration from `window.ha_branding_overrides` set by a user config script
 
-Recommended public rename for the extracted module:
+Capabilities:
 
-- `crooked-sentry-branding` -> `ha-branding-overrides`
-
-That applies to:
-
-- the built file name
-- README docs
-- config contract
-- Home Assistant setup snippets
-
-## Extraction Mapping
-
-Current source file in this monorepo maps to the extracted repo like this:
-
-- `homeassistant/www/community/crooked-sentry-branding/crooked-sentry-branding.js` -> `src/ha-branding-overrides.js`
-
-Current install automation in this repo also wires the script into `frontend.extra_module_url` in:
-
-- `scripts/install-stack.sh`
-
-The extracted public repo should ship only the reusable frontend module and examples. Appliance-specific automation stays in this monorepo.
-
-## Notes
-
-- This repo template now uses the real extracted implementation from `crooked-sentry-branding.js`, remapped onto the public `window.ha_branding_overrides` config seam.
-- The public package no longer hardcodes `Crooked Sentry` strings or `/local/community/...` asset paths.
-- Appliance-specific `frontend.extra_module_url` automation still belongs in this monorepo.
+- Rewrites favicon and app-name metadata in `<head>`
+- Rewrites `document.title`
+- Replaces visible `Home Assistant` text and accessibility labels via shadow DOM traversal
+- Swaps or removes logo nodes by selector
+- Brands auth/login pages when `auth.enabled` is set
